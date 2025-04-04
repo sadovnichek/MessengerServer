@@ -60,7 +60,7 @@ namespace MessengerServer
                     }
                     else
                     {
-                        await rooms[client.CurrentRoomTag].SendMessageAsync(client, message);
+                        await rooms[client.CurrentRoomTag].SendMessageBroadcastAsync(client, message);
                     }
                 }
                 catch(IOException io)
@@ -91,26 +91,22 @@ namespace MessengerServer
             {
                 await client.SendMessageToClient(help);
             }
-            else if (command == "/create")
+            else if (command == "/create" && arguments.Length <= 1)
             {
                 var roomName = arguments.Length == 1 ? arguments[0] : string.Empty;
-                var room = new Room(client, roomName);
-                rooms.Add(room.Name, room);
-                await client.SendMessageToClient($"CREATE ACCEPTED {room.Tag}");
+                await CreateRoomAsync(client, roomName);
             }
             else if (command == "/join" && arguments.Length == 1)
             {
-                var tag = arguments[0];
-                if(rooms.TryGetValue(tag, out var room))
-                {
-                    await client.SendMessageToClient($"JOIN ACCEPTED {room.Tag}");
-                    room.Join(client);
-                    client.CurrentRoomTag = tag;
-                }
-                else
-                {
-                    await client.SendMessageToClient($"JOIN DENIED {room.Tag}");
-                }
+                await JoinRoomAsync(client, arguments[0]);
+            }
+            else if (command == "/quit")
+            {
+                await QuitAsync(client);
+            }
+            else if (command == "/list")
+            {
+                await ListAsync(client);
             }
             else
             {
@@ -118,7 +114,47 @@ namespace MessengerServer
             }
         }
 
-        
+        private async Task ListAsync(Client client)
+        {
+            var message = rooms[client.CurrentRoomTag].ListUsers();
+            await client.SendMessageToClient(message);
+        }
+
+        private async Task QuitAsync(Client client)
+        {
+            try
+            {
+                await rooms[client.CurrentRoomTag].RemoveClientFromRoom(client);
+                client.CurrentRoomTag = string.Empty;
+                await client.SendMessageToClient($"QIUT ACCEPTED");
+            }
+            catch
+            {
+                await client.SendMessageToClient($"QIUT DENIED");
+                throw;
+            }
+        }
+
+        private async Task JoinRoomAsync(Client client, string tag)
+        {
+            if (rooms.TryGetValue(tag, out var room))
+            {
+                await client.SendMessageToClient($"JOIN ACCEPTED {room.Tag}");
+                room.Join(client);
+                client.CurrentRoomTag = tag;
+            }
+            else
+            {
+                await client.SendMessageToClient($"JOIN DENIED {room.Tag}");
+            }
+        }
+
+        private async Task CreateRoomAsync(Client client, string roomName)
+        {
+            var room = new Room(client, roomName);
+            rooms.Add(room.Tag, room);
+            await client.SendMessageToClient($"CREATE ACCEPTED {room.Tag}");
+        }
 
         private async Task SetUsernameAsync(Client client, string name)
         {
