@@ -1,27 +1,20 @@
 ﻿using System.Net.Sockets;
 using System.Net;
-using System.Runtime.InteropServices;
 
 namespace MessengerServer
 {
     public class Server : IServer
     {
         private TcpListener listener;
-        private static int port = 50000;
         private IPAddress ip;
         private Dictionary<Guid, Client> clients;
         private Dictionary<string, Room> rooms;
 
-        private const string help = "List of commands:\n\t" +
-                "/help shows this help\n\t" +
-                "/disconnect disconnects user\n\t" +
-                "/online shows users online in the chat\n\t" +
-                "/name {username} set a new username";
-
-        public Server(string ipAddress = "127.0.0.1", int port = 50000)
+        public Server()
         {
+            var (ipAddress, port) = GetIPAndPort();
             ip = IPAddress.Parse(ipAddress);
-            listener = new TcpListener(ip, port);
+            listener = new TcpListener(ip, int.Parse(port));
             clients = new Dictionary<Guid, Client>();
             rooms = new Dictionary<string, Room>();
         }
@@ -60,7 +53,7 @@ namespace MessengerServer
                     }
                     else
                     {
-                        await rooms[client.CurrentRoomTag].SendMessageBroadcastAsync(client, message);
+                        await rooms[client.CurrentRoomTag].SendMessageFromClientAsync(client, message);
                     }
                 }
                 catch(IOException io)
@@ -87,14 +80,9 @@ namespace MessengerServer
             {
                 await DisconnectUserAsync(client);
             }
-            else if(command == "/help")
+            else if (command == "/room" && arguments.Length <= 1)
             {
-                await client.SendMessageToClient(help);
-            }
-            else if (command == "/create" && arguments.Length <= 1)
-            {
-                var roomName = arguments.Length == 1 ? arguments[0] : string.Empty;
-                await CreateRoomAsync(client, roomName);
+                await CreateRoomAsync(client);
             }
             else if (command == "/join" && arguments.Length == 1)
             {
@@ -104,9 +92,9 @@ namespace MessengerServer
             {
                 await QuitAsync(client);
             }
-            else if (command == "/list")
+            else if (command == "/online")
             {
-                await ListAsync(client);
+                await ListOnlineAsync(client);
             }
             else
             {
@@ -114,9 +102,9 @@ namespace MessengerServer
             }
         }
 
-        private async Task ListAsync(Client client)
+        private async Task ListOnlineAsync(Client client)
         {
-            var message = rooms[client.CurrentRoomTag].ListUsers();
+            var message = rooms[client.CurrentRoomTag].GetOnlineUsers();
             await client.SendMessageToClient(message);
         }
 
@@ -124,7 +112,10 @@ namespace MessengerServer
         {
             try
             {
-                await rooms[client.CurrentRoomTag].RemoveClientFromRoom(client);
+                var clientRoom = rooms[client.CurrentRoomTag];
+                await clientRoom.RemoveClientFromRoom(client);
+                if (clientRoom.CountOnline == 0)
+                    rooms.Remove(client.CurrentRoomTag);
                 client.CurrentRoomTag = string.Empty;
                 await client.SendMessageToClient($"QIUT ACCEPTED");
             }
@@ -139,19 +130,19 @@ namespace MessengerServer
         {
             if (rooms.TryGetValue(tag, out var room))
             {
+                await room.Join(client);
                 await client.SendMessageToClient($"JOIN ACCEPTED {room.Tag}");
-                room.Join(client);
                 client.CurrentRoomTag = tag;
             }
             else
             {
-                await client.SendMessageToClient($"JOIN DENIED {room.Tag}");
+                await client.SendMessageToClient($"JOIN DENIED");
             }
         }
 
-        private async Task CreateRoomAsync(Client client, string roomName)
+        private async Task CreateRoomAsync(Client client)
         {
-            var room = new Room(client, roomName);
+            var room = new Room();
             rooms.Add(room.Tag, room);
             await client.SendMessageToClient($"CREATE ACCEPTED {room.Tag}");
         }
@@ -160,8 +151,13 @@ namespace MessengerServer
         {
             try
             {
+                var oldName = client.Username;
                 client.Username = name;
                 await client.SendMessageToClient($"NAME ACCEPTED");
+                if(client.CurrentRoomTag != null)
+                {
+                    await rooms[client.CurrentRoomTag].SendMessageBroadcastAsync($"User {oldName} is now {name}");
+                }
             }
             catch
             {
@@ -182,6 +178,12 @@ namespace MessengerServer
                 await client.SendMessageToClient("DISCONNECT DENIED");
                 throw;
             }
+        }
+
+        private (string, string) GetIPAndPort()
+        {
+            var config = File.ReadLines("./config.txt").ToArray()[0].Split(':');
+            return (config[0], config[1]);
         }
     }
 }

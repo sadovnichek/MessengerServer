@@ -12,35 +12,35 @@ namespace MessengerServer
 
         public string Tag { get; }
 
-        public string Name { get; }
+        public int CountOnline => participants.Count;
 
         private List<Client> participants;
 
-        public Room(Client author, string roomName = "") 
+        public Room() 
         {
             Id = Guid.NewGuid();
             Tag = Id.ToString().Substring(0, 6);
-            Name = roomName == "" ? Tag : roomName;
             participants = new List<Client>();
         }
 
-        public string ListUsers()
+        public string GetOnlineUsers()
         {
             return string.Join("\n", participants.Select(p => p.Username));
         }
 
-        public void Join(Client client)
+        public async Task Join(Client client)
         {
+            await SendMessageBroadcastAsync($"{client.Username} joined the room");
             participants.Add(client);
         }
 
         public async Task RemoveClientFromRoom(Client client)
         {
             participants.Remove(client);
-            await SendMessageBroadcastAsync(client, $"{client.Username} left the room");
+            await SendMessageBroadcastAsync($"{client.Username} left the room");
         }
 
-        public async Task SendMessageBroadcastAsync(Client client, string message)
+        public async Task SendMessageFromClientAsync(Client client, string message)
         {
             foreach(var p in participants)
             {
@@ -48,6 +48,14 @@ namespace MessengerServer
                 {
                     await p.SendMessageToClient($"[{client.Username}]: {message}");
                 }
+            }
+        }
+
+        public async Task SendMessageBroadcastAsync(string message)
+        {
+            foreach (var p in participants)
+            {
+                await p.SendMessageToClient(message);
             }
         }
     }
