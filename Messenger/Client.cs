@@ -8,6 +8,12 @@ using System.Threading.Tasks;
 
 namespace MessengerServer
 {
+    public enum State
+    {
+        Connected = 0,
+        Joined = 1
+    }
+
     public class Client
     {
         public Guid Guid { get; }
@@ -22,9 +28,21 @@ namespace MessengerServer
 
         public bool Connected => client.Connected;
 
-        public string CurrentRoomTag { get; set; }
+        public string CurrentRoomTag 
+        { 
+            get
+            {
+                if (State != State.Joined)
+                    throw new Exception();
+                return currentRoomTag;
+            }
+        }
+
+        public State State { get; private set; }
 
         private TcpClient client;
+
+        private string currentRoomTag;
 
         public Client(TcpClient client)
         {
@@ -34,6 +52,18 @@ namespace MessengerServer
             Reader = new StreamReader(stream);
             Writer = new StreamWriter(stream);
             Username = Guid.ToString().Substring(0, 6);
+        }
+
+        public void SetStateOnJoin(string roomTag)
+        {
+            State = State.Joined;
+            currentRoomTag = roomTag;
+        }
+
+        public void SetStateOnQuit()
+        {
+            State = State.Connected;
+            currentRoomTag = string.Empty;
         }
 
         public void Disconnect()

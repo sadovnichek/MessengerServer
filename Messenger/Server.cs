@@ -22,7 +22,7 @@ namespace MessengerServer
         public async Task Run()
         {
             listener.Start();
-            Console.WriteLine("Server started... ");
+            Console.WriteLine("Server started");
 
             while (true)
             {
@@ -35,7 +35,7 @@ namespace MessengerServer
 
         private async Task ProcessClientAsync(Client client)
         {
-            Console.WriteLine($"Connect {client.RemoteEndPoint}...");
+            Console.WriteLine($"Connected {client.RemoteEndPoint}");
 
             while (client.Connected)
             {
@@ -53,16 +53,22 @@ namespace MessengerServer
                     }
                     else
                     {
-                        await rooms[client.CurrentRoomTag].SendMessageFromClientAsync(client, message);
+                        if (client.State == State.Joined)
+                        {
+                            var room = rooms[client.CurrentRoomTag];
+                            await room.SendMessageFromClientAsync(client, message);
+                        }
+                        else
+                            await client.SendMessageToClient("YOU HAVE NOT JOINED ANY ROOM");
                     }
                 }
-                catch(IOException io)
+                catch (IOException)
                 {
-                    Console.WriteLine($"User {client.Username} disconnected");
+                    Console.WriteLine($"User {client.Username} suddenly disconnected");
                     clients.Remove(client.Guid);
                     client.Disconnect();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.WriteLine(e);
                     break;
@@ -84,17 +90,17 @@ namespace MessengerServer
             {
                 await CreateRoomAsync(client);
             }
-            else if (command == "/join" && arguments.Length == 1)
+            else if (command == "/join" && arguments.Length == 1 && client.State == State.Connected)
             {
                 await JoinRoomAsync(client, arguments[0]);
             }
-            else if (command == "/quit")
+            else if (command == "/quit" && client.State == State.Joined)
             {
                 await QuitAsync(client);
             }
-            else if (command == "/online")
+            else if (command == "/online" && client.State == State.Joined)
             {
-                await ListOnlineAsync(client);
+                await GetOnlineAsync(client);
             }
             else
             {
@@ -102,10 +108,18 @@ namespace MessengerServer
             }
         }
 
-        private async Task ListOnlineAsync(Client client)
+        private async Task GetOnlineAsync(Client client)
         {
-            var message = rooms[client.CurrentRoomTag].GetOnlineUsers();
-            await client.SendMessageToClient(message);
+            try
+            {
+                var message = rooms[client.CurrentRoomTag].GetOnlineUsers();
+                await client.SendMessageToClient(message);
+            }
+            catch
+            {
+                await client.SendMessageToClient($"ONLINE DENIED");
+                throw;
+            }
         }
 
         private async Task QuitAsync(Client client)
@@ -116,7 +130,7 @@ namespace MessengerServer
                 await clientRoom.RemoveClientFromRoom(client);
                 if (clientRoom.CountOnline == 0)
                     rooms.Remove(client.CurrentRoomTag);
-                client.CurrentRoomTag = string.Empty;
+                client.SetStateOnQuit();
                 await client.SendMessageToClient($"QIUT ACCEPTED");
             }
             catch
@@ -128,23 +142,39 @@ namespace MessengerServer
 
         private async Task JoinRoomAsync(Client client, string tag)
         {
-            if (rooms.TryGetValue(tag, out var room))
+            try
             {
-                await room.Join(client);
-                await client.SendMessageToClient($"JOIN ACCEPTED {room.Tag}");
-                client.CurrentRoomTag = tag;
+                if (rooms.TryGetValue(tag, out var room))
+                {
+                    await room.Join(client);
+                    client.SetStateOnJoin(tag);
+                    await client.SendMessageToClient($"JOIN ACCEPTED {room.Tag}");
+                }
+                else
+                {
+                    await client.SendMessageToClient($"JOIN DENIED. ROOM {tag} DOES NOT EXIST");
+                }
             }
-            else
+            catch
             {
                 await client.SendMessageToClient($"JOIN DENIED");
+                throw;
             }
         }
 
         private async Task CreateRoomAsync(Client client)
         {
-            var room = new Room();
-            rooms.Add(room.Tag, room);
-            await client.SendMessageToClient($"CREATE ACCEPTED {room.Tag}");
+            try
+            {
+                var room = new Room();
+                rooms.Add(room.Tag, room);
+                await client.SendMessageToClient($"CREATE ACCEPTED {room.Tag}");
+            }
+            catch
+            {
+                await client.SendMessageToClient($"CREATE DENIED");
+                throw;
+            }
         }
 
         private async Task SetUsernameAsync(Client client, string name)
@@ -153,15 +183,19 @@ namespace MessengerServer
             {
                 var oldName = client.Username;
                 client.Username = name;
-                await client.SendMessageToClient($"NAME ACCEPTED");
-                if(client.CurrentRoomTag != null)
+                if(client.State == State.Joined)
                 {
-                    await rooms[client.CurrentRoomTag].SendMessageBroadcastAsync($"User {oldName} is now {name}");
+                    await rooms[client.CurrentRoomTag].SendMessageFromClientAsync(client, $"User {oldName} is now {name}");
+                }
+                else
+                {
+                    await client.SendMessageToClient($"NAME ACCEPTED");
                 }
             }
             catch
             {
                 await client.SendMessageToClient($"NAME DENIED");
+                throw;
             }
         }
 
