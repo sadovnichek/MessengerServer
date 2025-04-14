@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MessengerServer
+namespace MessengerServer.Commands
 {
     public class RoomCommand : ICommand
     {
@@ -14,16 +14,8 @@ namespace MessengerServer
 
         public async Task Execute(Client client, Server server, params string[] args)
         {
-            try
-            {
-                var tag = server.CreateRoom();
-                await client.SendMessageToClient($"CREATE ACCEPTED {tag}");
-            }
-            catch
-            {
-                await client.SendMessageToClient($"CREATE DENIED");
-                throw;
-            }
+            var tag = server.CreateRoom();
+            await server.SendMessageToClient(client, $"CREATE ACCEPTED {tag}");
         }
     }
 }

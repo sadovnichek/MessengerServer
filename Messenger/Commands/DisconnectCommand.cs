@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MessengerServer
+namespace MessengerServer.Commands
 {
     public class DisconnectCommand : ICommand
     {
@@ -14,17 +14,9 @@ namespace MessengerServer
 
         public async Task Execute(Client client, Server server, params string[] args)
         {
-            try
-            {
-                await client.SendMessageToClient("DISCONNECT ACCEPTED");
-                server.RemoveClient(client.Guid);
-                client.Disconnect();
-            }
-            catch
-            {
-                await client.SendMessageToClient("DISCONNECT DENIED");
-                throw;
-            }
+            await server.SendMessageToClient(client, "DISCONNECT ACCEPTED");
+            server.RemoveClient(client.Guid);
+            client.Disconnect();
         }
     }
 }

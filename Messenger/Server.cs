@@ -1,5 +1,6 @@
 ﻿using System.Net.Sockets;
 using System.Net;
+using MessengerServer.Commands;
 
 namespace MessengerServer
 {
@@ -8,7 +9,6 @@ namespace MessengerServer
         private TcpListener listener;
         private Dictionary<Guid, Client> clients;
         private Dictionary<string, Room> rooms;
-        private List<ICommand> commands;
         private Dictionary<string, ICommand> helper;
 
         public Server()
@@ -17,26 +17,15 @@ namespace MessengerServer
             listener = new TcpListener(IPAddress.Parse(ipAddress), int.Parse(port));
             clients = new Dictionary<Guid, Client>();
             rooms = new Dictionary<string, Room>();
-
-            commands = new List<ICommand>()
-            {
-                new DisconnectCommand(),
-                new JoinCommand(),
-                new NameCommand(),
-                new OnlineUsersCommand(),
-                new QuitCommand(),
-                new RoomCommand()
-            };
-
-            helper = commands.ToDictionary(c => c.Name, c => c);
+            helper = CommandHelper.GetCommands().ToDictionary(command => command.Name, command => command);
         }
 
         public async Task Run()
         {
             listener.Start();
-            Console.WriteLine("Server started");
+            Log("Server started");
 
-            while (!Console.KeyAvailable)
+            while (true)
             {
                 var tcpClient = await listener.AcceptTcpClientAsync();
                 var client = new Client(tcpClient);
@@ -47,7 +36,7 @@ namespace MessengerServer
 
         private async Task ProcessClientAsync(Client client)
         {
-            Console.WriteLine($"Connected {client.RemoteEndPoint}");
+            Log($"Connected {client.RemoteEndPoint}");
             while (client.Connected)
             {
                 try
@@ -59,13 +48,13 @@ namespace MessengerServer
                 }
                 catch (IOException)
                 {
-                    Console.WriteLine($"User {client.Username} suddenly disconnected");
+                    Log($"User {client.Username} suddenly disconnected");
                     clients.Remove(client.Guid);
                     client.Disconnect();
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    Log(e.Message);
                 }
             }
         }
@@ -87,7 +76,7 @@ namespace MessengerServer
                     await room.SendMessageFromClientAsync(client, message);
                 }
                 else
-                    await client.SendMessageToClient("YOU HAVE NOT JOINED ANY ROOM");
+                    await SendMessageToClient(client, "YOU HAVE NOT JOINED ANY ROOM");
             }
         }
 
@@ -95,18 +84,24 @@ namespace MessengerServer
         {
             try
             {
-                await helper[command].Execute(client, this, arguments);
+                if (!helper.TryGetValue(command, out var instance))
+                    await SendMessageToClient(client, $"EXECUTION DENIED. COMMAND {command} DOES NOT EXIST");
+                else
+                    await instance.Execute(client, this, arguments);
             }
-            catch 
+            catch (InvalidOperationException)
             {
-                await client.SendMessageToClient($"EXECUTION DENIED");
+                await SendMessageToClient(client, $"EXECUTION DENIED. WRONG ARGUMENTS");
+            }
+            catch (Exception)
+            {
                 throw;
             }
         }
 
         public string CreateRoom()
         {
-            var room = new Room();
+            var room = new Room(this);
             rooms.Add(room.Tag, room);
             return room.Tag;
         }
@@ -119,6 +114,17 @@ namespace MessengerServer
         public void RemoveClient(Guid clientGuid)
         {
             clients.Remove(clientGuid);
+        }
+
+        public async Task SendMessageToClient(Client client, string message)
+        {
+            await client.Writer.WriteLineAsync(message);
+            await client.Writer.FlushAsync();
+        }
+
+        public void Log(string message)
+        {
+            Console.WriteLine(message);
         }
 
         private (string, string) GetIPAndPort()

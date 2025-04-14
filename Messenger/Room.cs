@@ -16,11 +16,14 @@ namespace MessengerServer
 
         private List<Client> participants;
 
-        public Room() 
+        private Server server;
+
+        public Room(Server server) 
         {
             Id = Guid.NewGuid();
             Tag = Id.ToString().Substring(0, 6);
             participants = new List<Client>();
+            this.server = server;
         }
 
         public string GetOnlineUsers()
@@ -46,7 +49,7 @@ namespace MessengerServer
             {
                 if(p.Guid != client.Guid)
                 {
-                    await p.SendMessageToClient($"[{client.Username}]: {message}");
+                    await server.SendMessageToClient(p, $"[{client.Username}]: {message}");
                 }
             }
         }
@@ -55,7 +58,7 @@ namespace MessengerServer
         {
             foreach (var p in participants)
             {
-                await p.SendMessageToClient(message);
+                await server.SendMessageToClient(p, message);
             }
         }
     }

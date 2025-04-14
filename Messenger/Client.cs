@@ -51,7 +51,7 @@ namespace MessengerServer
             var stream = client.GetStream();
             Reader = new StreamReader(stream);
             Writer = new StreamWriter(stream);
-            Username = Guid.ToString().Substring(0, 6);
+            Username = Guid.ToString().Substring(0, 7);
         }
 
         public void SetStateOnJoin(string roomTag)
@@ -69,12 +69,6 @@ namespace MessengerServer
         public void Disconnect()
         {
             client.Close();
-        }
-
-        public async Task SendMessageToClient(string message)
-        {
-            await Writer.WriteLineAsync(message);
-            await Writer.FlushAsync();
         }
     }
 }

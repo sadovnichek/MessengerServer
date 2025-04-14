@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MessengerServer
+namespace MessengerServer.Commands
 {
-    interface ICommand
+    public interface ICommand
     {
         string Name { get; }
 
