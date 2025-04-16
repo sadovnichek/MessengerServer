@@ -28,19 +28,19 @@ namespace MessengerServer
 
         public string GetOnlineUsers()
         {
-            return string.Join("\n", participants.Select(p => p.Username));
+            return string.Join(";", participants.Select(p => p.Username));
         }
 
         public async Task Join(Client client)
         {
-            await SendMessageBroadcastAsync($"{client.Username} joined the room");
+            await SendMessageBroadcastAsync($"JOINED {client.Username}");
             participants.Add(client);
         }
 
         public async Task RemoveClientFromRoom(Client client)
         {
             participants.Remove(client);
-            await SendMessageBroadcastAsync($"{client.Username} left the room");
+            await SendMessageBroadcastAsync($"LEFT {client.Username}");
         }
 
         public async Task SendMessageFromClientAsync(Client client, string message)

@@ -14,7 +14,7 @@ namespace MessengerServer.Commands
 
         public async Task Execute(Client client, Server server, params string[] args)
         {
-            await server.SendMessageToClient(client, $"{client.Username}");
+            await server.SendMessageToClient(client, $"YOU ARE {client.Username}");
         }
     }
 }

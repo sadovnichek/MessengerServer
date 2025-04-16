@@ -19,7 +19,7 @@ namespace MessengerServer.Commands
             server.TryGetRoom(client.CurrentRoomTag, out var clientRoom);
             await clientRoom.RemoveClientFromRoom(client);
             client.SetStateOnQuit();
-            await server.SendMessageToClient(client, $"QIUT ACCEPTED");
+            await server.SendMessageToClient(client, $"QUIT ACCEPTED");
         }
 
         private bool ValidateClientState(Client client)

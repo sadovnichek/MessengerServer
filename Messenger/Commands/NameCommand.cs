@@ -22,7 +22,7 @@ namespace MessengerServer.Commands
             if (client.State == State.Joined)
             {
                 server.TryGetRoom(client.CurrentRoomTag, out var clientRoom);
-                await clientRoom.SendMessageBroadcastAsync($"User {oldName} is now {args[0]}");
+                await clientRoom.SendMessageBroadcastAsync($"CHNAME FROM {oldName} TO {args[0]}");
             }
             else
             {
