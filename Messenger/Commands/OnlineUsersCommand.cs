@@ -17,7 +17,7 @@ namespace MessengerServer.Commands
             if (!ValidateUserState(client))
                 throw new InvalidOperationException();
             server.TryGetRoom(client.CurrentRoomTag, out var room);
-            var message = "ONLINE " + room.GetOnlineUsers();
+            var message = "ONLINE " + string.Join(";", room.GetUserNames());
             await server.SendMessageToClient(client, message);
         }
 

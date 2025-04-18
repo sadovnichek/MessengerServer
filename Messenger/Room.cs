@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,8 +12,6 @@ namespace MessengerServer
         public Guid Id { get; }
 
         public string Tag { get; }
-
-        public int CountOnline => participants.Count;
 
         private List<Client> participants;
 
@@ -26,9 +25,9 @@ namespace MessengerServer
             this.server = server;
         }
 
-        public string GetOnlineUsers()
+        public IEnumerable<string> GetUserNames()
         {
-            return string.Join(";", participants.Select(p => p.Username));
+            return participants.Select(p => p.Username);
         }
 
         public async Task Join(Client client)

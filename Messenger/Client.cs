@@ -33,7 +33,7 @@ namespace MessengerServer
             get
             {
                 if (State != State.Joined)
-                    throw new Exception();
+                    throw new InvalidCastException("User is not joined to any room");
                 return currentRoomTag;
             }
         }
@@ -52,6 +52,7 @@ namespace MessengerServer
             Reader = new StreamReader(stream);
             Writer = new StreamWriter(stream);
             Username = Guid.ToString().Substring(0, 7);
+            currentRoomTag = string.Empty;
         }
 
         public void SetStateOnJoin(string roomTag)

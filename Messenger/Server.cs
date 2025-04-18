@@ -7,7 +7,6 @@ namespace MessengerServer
     public class Server : IServer
     {
         private TcpListener listener;
-        private Dictionary<Guid, Client> clients;
         private Dictionary<string, Room> rooms;
         private Dictionary<string, ICommand> helper;
 
@@ -15,7 +14,6 @@ namespace MessengerServer
         {
             var (ipAddress, port) = GetIPAndPort();
             listener = new TcpListener(IPAddress.Parse(ipAddress), int.Parse(port));
-            clients = new Dictionary<Guid, Client>();
             rooms = new Dictionary<string, Room>();
             helper = CommandHelper.GetCommands().ToDictionary(command => command.Name, command => command);
         }
@@ -29,7 +27,6 @@ namespace MessengerServer
             {
                 var tcpClient = await listener.AcceptTcpClientAsync();
                 var client = new Client(tcpClient);
-                clients.Add(client.Guid, client);
                 Task.Run(async () => await ProcessClientAsync(client));
             }
         }
@@ -48,8 +45,7 @@ namespace MessengerServer
                 }
                 catch (IOException)
                 {
-                    Log($"User {client.Username} suddenly disconnected");
-                    clients.Remove(client.Guid);
+                    Log($"User {client.Username} was suddenly disconnected");
                     client.Disconnect();
                 }
                 catch (Exception e)
@@ -109,11 +105,6 @@ namespace MessengerServer
         public bool TryGetRoom(string tag, out Room room)
         {
             return rooms.TryGetValue(tag, out room);
-        }
-
-        public void RemoveClient(Guid clientGuid)
-        {
-            clients.Remove(clientGuid);
         }
 
         public async Task SendMessageToClient(Client client, string message)

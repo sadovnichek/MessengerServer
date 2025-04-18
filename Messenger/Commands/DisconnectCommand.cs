@@ -15,7 +15,6 @@ namespace MessengerServer.Commands
         public async Task Execute(Client client, Server server, params string[] args)
         {
             await server.SendMessageToClient(client, "DISCONNECT ACCEPTED");
-            server.RemoveClient(client.Guid);
             client.Disconnect();
         }
     }
